@@ -24,6 +24,7 @@
 #include <stdint.h>
 
 #include "libavutil/avutil.h"
+#include "libavutil/mastering_display_metadata.h"
 #include "libavutil/rational.h"
 #include "libavutil/pixfmt.h"
 
@@ -148,6 +149,12 @@ typedef struct AVCodecParameters {
     enum AVColorTransferCharacteristic color_trc;
     enum AVColorSpace                  color_space;
     enum AVChromaLocation              chroma_location;
+
+    /**
+     * Video only. HDR metadata.
+     */
+    AVMasteringDisplayMetadata master_display_metadata;
+    AVContentLightMetadata     content_light_metadata;
 
     /**
      * Video only. Number of delayed frames.
