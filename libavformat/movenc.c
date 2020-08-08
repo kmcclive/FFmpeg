@@ -1947,14 +1947,21 @@ static int mov_write_colr_tag(AVIOContext *pb, MOVTrack *track, int prefer_icc)
 static int mov_write_clli_tag(AVIOContext *pb, MOVTrack *track)
 {
     const uint8_t *side_data;
-    const AVContentLightMetadata *content_light_metadata;
+    const AVContentLightMetadata *content_light_metadata = &track->par->content_light_metadata;
 
-    side_data = av_stream_get_side_data(track->st, AV_PKT_DATA_CONTENT_LIGHT_LEVEL, NULL);
-    if (!side_data) {
+    if (content_light_metadata->MaxCLL <= 0 || content_light_metadata->MaxFALL <= 0) {
+        side_data = av_stream_get_side_data(track->st, AV_PKT_DATA_CONTENT_LIGHT_LEVEL, NULL);
+        if (side_data) {
+            content_light_metadata = (const AVContentLightMetadata*)side_data;
+        } else {
+            content_light_metadata = NULL;
+        }
+    }
+
+    if (!content_light_metadata) {
         av_log(NULL, AV_LOG_VERBOSE, "Not writing 'clli' atom. No content light level info.\n");
         return 0;
     }
-    content_light_metadata = (const AVContentLightMetadata*)side_data;
 
     avio_wb32(pb, 12); // size
     ffio_wfourcc(pb, "clli");
@@ -1973,10 +1980,18 @@ static int mov_write_mdcv_tag(AVIOContext *pb, MOVTrack *track)
     const int chroma_den = 50000;
     const int luma_den = 10000;
     const uint8_t *side_data;
-    const AVMasteringDisplayMetadata *metadata;
+    const AVMasteringDisplayMetadata *metadata = &track->par->master_display_metadata;
 
-    side_data = av_stream_get_side_data(track->st, AV_PKT_DATA_MASTERING_DISPLAY_METADATA, NULL);
-    metadata = (const AVMasteringDisplayMetadata*)side_data;
+    if (!metadata->has_primaries || !metadata->has_luminance) {
+        side_data = av_stream_get_side_data(track->st, AV_PKT_DATA_MASTERING_DISPLAY_METADATA, NULL);
+
+        if (side_data) {
+            metadata = (const AVMasteringDisplayMetadata*)side_data;
+        } else {
+            metadata = NULL;
+        }
+    }
+    
     if (!metadata || !metadata->has_primaries || !metadata->has_luminance) {
         av_log(NULL, AV_LOG_VERBOSE, "Not writing 'mdcv' atom. Missing mastering metadata.\n");
         return 0;
