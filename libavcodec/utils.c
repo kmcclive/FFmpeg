@@ -68,6 +68,7 @@
 const char av_codec_ffversion[] = "FFmpeg version " FFMPEG_VERSION;
 
 static AVMutex codec_mutex = AV_MUTEX_INITIALIZER;
+static int unspecified_coord = INT_MAX; 
 
 void av_fast_padded_malloc(void *ptr, unsigned int *size, size_t min_size)
 {
@@ -2127,14 +2128,16 @@ static void mastering_display_metadata_from_context(AVMasteringDisplayMetadata *
     if (!metadata || !codec)
         return;
     
-    if (codec->master_display_red_x.den > 0 &&
-        codec->master_display_red_y.den > 0 &&
-        codec->master_display_green_x.den > 0 &&
-        codec->master_display_green_y.den > 0 &&
-        codec->master_display_blue_x.den > 0 &&
-        codec->master_display_blue_y.den > 0 &&
-        codec->master_display_white_x.den > 0 &&
-        codec->master_display_white_y.den > 0)
+    master_display_metadata_reset(metadata);
+    
+    if (codec->master_display_red_x.num != unspecified_coord &&
+        codec->master_display_red_y.num != unspecified_coord &&
+        codec->master_display_green_x.num != unspecified_coord &&
+        codec->master_display_green_y.num != unspecified_coord &&
+        codec->master_display_blue_x.num != unspecified_coord &&
+        codec->master_display_blue_y.num != unspecified_coord &&
+        codec->master_display_white_x.num != unspecified_coord &&
+        codec->master_display_white_y.num != unspecified_coord)
     {
         metadata->display_primaries[0][0] = codec->master_display_red_x;
         metadata->display_primaries[0][1] = codec->master_display_red_y;
@@ -2242,12 +2245,24 @@ static void mastering_display_metadata_to_context(AVCodecContext *codec,
         codec->master_display_blue_y = metadata->display_primaries[2][1];
         codec->master_display_white_x = metadata->white_point[0];
         codec->master_display_white_y = metadata->white_point[1];
+    } else {
+        codec->master_display_red_x = (AVRational){ unspecified_coord, 1 };
+        codec->master_display_red_y = (AVRational){ unspecified_coord, 1 };
+        codec->master_display_green_x = (AVRational){ unspecified_coord, 1 };
+        codec->master_display_green_y = (AVRational){ unspecified_coord, 1 };
+        codec->master_display_blue_x = (AVRational){ unspecified_coord, 1 };
+        codec->master_display_blue_y = (AVRational){ unspecified_coord, 1 };
+        codec->master_display_white_x = (AVRational){ unspecified_coord, 1 };
+        codec->master_display_white_y = (AVRational){ unspecified_coord, 1 };
     }
 
     if (metadata->has_luminance)
     {
         codec->master_display_min_luminance = metadata->min_luminance;
         codec->master_display_max_luminance = metadata->max_luminance;
+    } else {
+        codec->master_display_min_luminance = (AVRational){ unspecified_coord, 1 };
+        codec->master_display_max_luminance = (AVRational){ unspecified_coord, 1 };
     }
 }
 
