@@ -2031,6 +2031,34 @@ AVCPBProperties *ff_add_cpb_side_data(AVCodecContext *avctx)
     return props;
 }
 
+static void master_display_metadata_reset(AVMasteringDisplayMetadata *metadata)
+{
+    if (!metadata)
+        return;
+
+    metadata->display_primaries[0][0] = (AVRational){ 0, 1 };
+    metadata->display_primaries[0][1] = (AVRational){ 0, 1 };
+    metadata->display_primaries[1][0] = (AVRational){ 0, 1 };
+    metadata->display_primaries[1][1] = (AVRational){ 0, 1 };
+    metadata->display_primaries[2][0] = (AVRational){ 0, 1 };
+    metadata->display_primaries[2][1] = (AVRational){ 0, 1 };
+    metadata->white_point[0] = (AVRational){ 0, 1 };
+    metadata->white_point[1] = (AVRational){ 0, 1 };
+    metadata->has_primaries = 0;
+    metadata->min_luminance = (AVRational){ 0, 1 };
+    metadata->max_luminance = (AVRational){ 0, 1 };
+    metadata->has_luminance = 0;
+}
+
+static void content_light_metadata_reset(AVContentLightMetadata *metadata)
+{
+    if (!metadata)
+        return;
+
+    metadata->MaxCLL = 0;
+    metadata->MaxFALL = 0;
+}
+
 static void codec_parameters_reset(AVCodecParameters *par)
 {
     av_freep(&par->extradata);
@@ -2050,36 +2078,8 @@ static void codec_parameters_reset(AVCodecParameters *par)
     par->profile             = FF_PROFILE_UNKNOWN;
     par->level               = FF_LEVEL_UNKNOWN;
 
-    avcodec_mastering_display_metadata_reset(&par->master_display_metadata);
-    avcodec_content_light_metadata_reset(&par->content_light_metadata);
-}
-
-static void avcodec_master_display_metadata_reset(AVMasteringDisplayMetadata *metadata)
-{
-    if (!metadata)
-        return;
-
-    metadata->display_primaries[0][0] = (AVRational){ 0, 1 };
-    metadata->display_primaries[0][1] = (AVRational){ 0, 1 };
-    metadata->display_primaries[1][0] = (AVRational){ 0, 1 };
-    metadata->display_primaries[1][1] = (AVRational){ 0, 1 };
-    metadata->display_primaries[2][0] = (AVRational){ 0, 1 };
-    metadata->display_primaries[2][1] = (AVRational){ 0, 1 };
-    metadata->white_point[0] = (AVRational){ 0, 1 };
-    metadata->white_point[1] = (AVRational){ 0, 1 };
-    metadata->has_primaries = 0;
-    metadata->min_luminance = (AVRational){ 0, 1 };
-    metadata->max_luminance = (AVRational){ 0, 1 };
-    metadata->has_luminance = 0;
-}
-
-static void avcodec_content_light_metadata_reset(AVContentLightMetadata *metadata)
-{
-    if (!metadata)
-        return;
-
-    metadata->MaxCLL = 0;
-    metadata->MaxFALL = 0;
+    master_display_metadata_reset(&par->master_display_metadata);
+    content_light_metadata_reset(&par->content_light_metadata);
 }
 
 AVCodecParameters *avcodec_parameters_alloc(void)
@@ -2121,128 +2121,8 @@ int avcodec_parameters_copy(AVCodecParameters *dst, const AVCodecParameters *src
     return 0;
 }
 
-int avcodec_parameters_from_context(AVCodecParameters *par,
-                                    const AVCodecContext *codec)
-{
-    codec_parameters_reset(par);
-
-    par->codec_type = codec->codec_type;
-    par->codec_id   = codec->codec_id;
-    par->codec_tag  = codec->codec_tag;
-
-    par->bit_rate              = codec->bit_rate;
-    par->bits_per_coded_sample = codec->bits_per_coded_sample;
-    par->bits_per_raw_sample   = codec->bits_per_raw_sample;
-    par->profile               = codec->profile;
-    par->level                 = codec->level;
-
-    switch (par->codec_type) {
-    case AVMEDIA_TYPE_VIDEO:
-        par->format              = codec->pix_fmt;
-        par->width               = codec->width;
-        par->height              = codec->height;
-        par->field_order         = codec->field_order;
-        par->color_range         = codec->color_range;
-        par->color_primaries     = codec->color_primaries;
-        par->color_trc           = codec->color_trc;
-        par->color_space         = codec->colorspace;
-        par->chroma_location     = codec->chroma_sample_location;
-        par->sample_aspect_ratio = codec->sample_aspect_ratio;
-        par->video_delay         = codec->has_b_frames;
-
-        avcodec_mastering_display_metadata_from_context(&par->master_display_metadata, codec);
-        avcodec_content_light_metadata_from_context(&par->content_light_metadata, codec);
-        break;
-    case AVMEDIA_TYPE_AUDIO:
-        par->format           = codec->sample_fmt;
-        par->channel_layout   = codec->channel_layout;
-        par->channels         = codec->channels;
-        par->sample_rate      = codec->sample_rate;
-        par->block_align      = codec->block_align;
-        par->frame_size       = codec->frame_size;
-        par->initial_padding  = codec->initial_padding;
-        par->trailing_padding = codec->trailing_padding;
-        par->seek_preroll     = codec->seek_preroll;
-        break;
-    case AVMEDIA_TYPE_SUBTITLE:
-        par->width  = codec->width;
-        par->height = codec->height;
-        break;
-    }
-
-    if (codec->extradata) {
-        par->extradata = av_mallocz(codec->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
-        if (!par->extradata)
-            return AVERROR(ENOMEM);
-        memcpy(par->extradata, codec->extradata, codec->extradata_size);
-        par->extradata_size = codec->extradata_size;
-    }
-
-    return 0;
-}
-
-int avcodec_parameters_to_context(AVCodecContext *codec,
-                                  const AVCodecParameters *par)
-{
-    codec->codec_type = par->codec_type;
-    codec->codec_id   = par->codec_id;
-    codec->codec_tag  = par->codec_tag;
-
-    codec->bit_rate              = par->bit_rate;
-    codec->bits_per_coded_sample = par->bits_per_coded_sample;
-    codec->bits_per_raw_sample   = par->bits_per_raw_sample;
-    codec->profile               = par->profile;
-    codec->level                 = par->level;
-
-    switch (par->codec_type) {
-    case AVMEDIA_TYPE_VIDEO:
-        codec->pix_fmt                = par->format;
-        codec->width                  = par->width;
-        codec->height                 = par->height;
-        codec->field_order            = par->field_order;
-        codec->color_range            = par->color_range;
-        codec->color_primaries        = par->color_primaries;
-        codec->color_trc              = par->color_trc;
-        codec->colorspace             = par->color_space;
-        codec->chroma_sample_location = par->chroma_location;
-        codec->sample_aspect_ratio    = par->sample_aspect_ratio;
-        codec->has_b_frames           = par->video_delay;
-
-        avcodec_mastering_display_metadata_to_context(codec, &par->master_display_metadata);
-        avcodec_content_light_metadata_to_context(codec, &par->content_light_metadata);
-        break;
-    case AVMEDIA_TYPE_AUDIO:
-        codec->sample_fmt       = par->format;
-        codec->channel_layout   = par->channel_layout;
-        codec->channels         = par->channels;
-        codec->sample_rate      = par->sample_rate;
-        codec->block_align      = par->block_align;
-        codec->frame_size       = par->frame_size;
-        codec->delay            =
-        codec->initial_padding  = par->initial_padding;
-        codec->trailing_padding = par->trailing_padding;
-        codec->seek_preroll     = par->seek_preroll;
-        break;
-    case AVMEDIA_TYPE_SUBTITLE:
-        codec->width  = par->width;
-        codec->height = par->height;
-        break;
-    }
-
-    if (par->extradata) {
-        av_freep(&codec->extradata);
-        codec->extradata = av_mallocz(par->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
-        if (!codec->extradata)
-            return AVERROR(ENOMEM);
-        memcpy(codec->extradata, par->extradata, par->extradata_size);
-        codec->extradata_size = par->extradata_size;
-    }
-
-    return 0;
-}
-
-static void avcodec_mastering_display_metadata_from_context(AVMasteringDisplayMetadata *metadata,
-                                                            const AVCodecContext *codec)
+static void mastering_display_metadata_from_context(AVMasteringDisplayMetadata *metadata,
+                                                    const AVCodecContext *codec)
 {
     if (!metadata || !codec)
         return;
@@ -2276,8 +2156,78 @@ static void avcodec_mastering_display_metadata_from_context(AVMasteringDisplayMe
     }
 }
 
-static void avcodec_mastering_display_metadata_to_context(AVCodecContext *codec,
-                                                          const AVMasteringDisplayMetadata *metadata)
+static void content_light_metadata_from_context(AVContentLightMetadata *metadata,
+                                                const AVCodecContext *codec)
+{
+    if (!metadata || !codec)
+        return;
+    
+    metadata->MaxCLL = codec->max_cll;
+    metadata->MaxFALL = codec->max_fall;
+}
+
+int avcodec_parameters_from_context(AVCodecParameters *par,
+                                    const AVCodecContext *codec)
+{
+    codec_parameters_reset(par);
+
+    par->codec_type = codec->codec_type;
+    par->codec_id   = codec->codec_id;
+    par->codec_tag  = codec->codec_tag;
+
+    par->bit_rate              = codec->bit_rate;
+    par->bits_per_coded_sample = codec->bits_per_coded_sample;
+    par->bits_per_raw_sample   = codec->bits_per_raw_sample;
+    par->profile               = codec->profile;
+    par->level                 = codec->level;
+
+    switch (par->codec_type) {
+    case AVMEDIA_TYPE_VIDEO:
+        par->format              = codec->pix_fmt;
+        par->width               = codec->width;
+        par->height              = codec->height;
+        par->field_order         = codec->field_order;
+        par->color_range         = codec->color_range;
+        par->color_primaries     = codec->color_primaries;
+        par->color_trc           = codec->color_trc;
+        par->color_space         = codec->colorspace;
+        par->chroma_location     = codec->chroma_sample_location;
+        par->sample_aspect_ratio = codec->sample_aspect_ratio;
+        par->video_delay         = codec->has_b_frames;
+
+        mastering_display_metadata_from_context(&par->master_display_metadata, codec);
+        content_light_metadata_from_context(&par->content_light_metadata, codec);
+        break;
+    case AVMEDIA_TYPE_AUDIO:
+        par->format           = codec->sample_fmt;
+        par->channel_layout   = codec->channel_layout;
+        par->channels         = codec->channels;
+        par->sample_rate      = codec->sample_rate;
+        par->block_align      = codec->block_align;
+        par->frame_size       = codec->frame_size;
+        par->initial_padding  = codec->initial_padding;
+        par->trailing_padding = codec->trailing_padding;
+        par->seek_preroll     = codec->seek_preroll;
+        break;
+    case AVMEDIA_TYPE_SUBTITLE:
+        par->width  = codec->width;
+        par->height = codec->height;
+        break;
+    }
+
+    if (codec->extradata) {
+        par->extradata = av_mallocz(codec->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
+        if (!par->extradata)
+            return AVERROR(ENOMEM);
+        memcpy(par->extradata, codec->extradata, codec->extradata_size);
+        par->extradata_size = codec->extradata_size;
+    }
+
+    return 0;
+}
+
+static void mastering_display_metadata_to_context(AVCodecContext *codec,
+                                                  const AVMasteringDisplayMetadata *metadata)
 {
     if (!codec || !metadata)
         return;
@@ -2301,24 +2251,74 @@ static void avcodec_mastering_display_metadata_to_context(AVCodecContext *codec,
     }
 }
 
-static void avcodec_content_light_metadata_from_context(AVContentLightMetadata *metadata,
-                                                        const AVCodecContext *codec)
-{
-    if (!metadata || !codec)
-        return;
-    
-    metadata->MaxCLL = codec->max_cll;
-    metadata->MaxFALL = codec->max_fall;
-}
-
-static void avcodec_content_light_metadata_to_context(AVCodecContext *codec,
-                                                      const AVContentLightMetadata *metadata)
+static void content_light_metadata_to_context(AVCodecContext *codec,
+                                              const AVContentLightMetadata *metadata)
 {
     if (!codec || !metadata)
         return;
     
     codec->max_cll = metadata->MaxCLL;
     codec->max_fall = metadata->MaxFALL;
+}
+
+int avcodec_parameters_to_context(AVCodecContext *codec,
+                                  const AVCodecParameters *par)
+{
+    codec->codec_type = par->codec_type;
+    codec->codec_id   = par->codec_id;
+    codec->codec_tag  = par->codec_tag;
+
+    codec->bit_rate              = par->bit_rate;
+    codec->bits_per_coded_sample = par->bits_per_coded_sample;
+    codec->bits_per_raw_sample   = par->bits_per_raw_sample;
+    codec->profile               = par->profile;
+    codec->level                 = par->level;
+
+    switch (par->codec_type) {
+    case AVMEDIA_TYPE_VIDEO:
+        codec->pix_fmt                = par->format;
+        codec->width                  = par->width;
+        codec->height                 = par->height;
+        codec->field_order            = par->field_order;
+        codec->color_range            = par->color_range;
+        codec->color_primaries        = par->color_primaries;
+        codec->color_trc              = par->color_trc;
+        codec->colorspace             = par->color_space;
+        codec->chroma_sample_location = par->chroma_location;
+        codec->sample_aspect_ratio    = par->sample_aspect_ratio;
+        codec->has_b_frames           = par->video_delay;
+
+        mastering_display_metadata_to_context(codec, &par->master_display_metadata);
+        content_light_metadata_to_context(codec, &par->content_light_metadata);
+        break;
+    case AVMEDIA_TYPE_AUDIO:
+        codec->sample_fmt       = par->format;
+        codec->channel_layout   = par->channel_layout;
+        codec->channels         = par->channels;
+        codec->sample_rate      = par->sample_rate;
+        codec->block_align      = par->block_align;
+        codec->frame_size       = par->frame_size;
+        codec->delay            =
+        codec->initial_padding  = par->initial_padding;
+        codec->trailing_padding = par->trailing_padding;
+        codec->seek_preroll     = par->seek_preroll;
+        break;
+    case AVMEDIA_TYPE_SUBTITLE:
+        codec->width  = par->width;
+        codec->height = par->height;
+        break;
+    }
+
+    if (par->extradata) {
+        av_freep(&codec->extradata);
+        codec->extradata = av_mallocz(par->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
+        if (!codec->extradata)
+            return AVERROR(ENOMEM);
+        memcpy(codec->extradata, par->extradata, par->extradata_size);
+        codec->extradata_size = par->extradata_size;
+    }
+
+    return 0;
 }
 
 int ff_alloc_a53_sei(const AVFrame *frame, size_t prefix_len,
