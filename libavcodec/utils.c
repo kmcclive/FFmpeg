@@ -67,8 +67,7 @@
 #include "libavutil/ffversion.h"
 const char av_codec_ffversion[] = "FFmpeg version " FFMPEG_VERSION;
 
-static AVMutex codec_mutex = AV_MUTEX_INITIALIZER;
-static int unspecified_coord = INT_MAX; 
+static AVMutex codec_mutex = AV_MUTEX_INITIALIZER; 
 
 void av_fast_padded_malloc(void *ptr, unsigned int *size, size_t min_size)
 {
@@ -2131,14 +2130,14 @@ static void mastering_display_metadata_from_context(AVMasteringDisplayMetadata *
     
     master_display_metadata_reset(metadata);
     
-    if (codec->master_display_red_x.num != unspecified_coord &&
-        codec->master_display_red_y.num != unspecified_coord &&
-        codec->master_display_green_x.num != unspecified_coord &&
-        codec->master_display_green_y.num != unspecified_coord &&
-        codec->master_display_blue_x.num != unspecified_coord &&
-        codec->master_display_blue_y.num != unspecified_coord &&
-        codec->master_display_white_x.num != unspecified_coord &&
-        codec->master_display_white_y.num != unspecified_coord)
+    if (codec->master_display_red_x.num != AV_CODEC_MASTER_DISPLAY_UNSPECIFIED &&
+        codec->master_display_red_y.num != AV_CODEC_MASTER_DISPLAY_UNSPECIFIED &&
+        codec->master_display_green_x.num != AV_CODEC_MASTER_DISPLAY_UNSPECIFIED &&
+        codec->master_display_green_y.num != AV_CODEC_MASTER_DISPLAY_UNSPECIFIED &&
+        codec->master_display_blue_x.num != AV_CODEC_MASTER_DISPLAY_UNSPECIFIED &&
+        codec->master_display_blue_y.num != AV_CODEC_MASTER_DISPLAY_UNSPECIFIED &&
+        codec->master_display_white_x.num != AV_CODEC_MASTER_DISPLAY_UNSPECIFIED &&
+        codec->master_display_white_y.num != AV_CODEC_MASTER_DISPLAY_UNSPECIFIED)
     {
         metadata->display_primaries[0][0] = codec->master_display_red_x;
         metadata->display_primaries[0][1] = codec->master_display_red_y;
@@ -2247,14 +2246,14 @@ static void mastering_display_metadata_to_context(AVCodecContext *codec,
         codec->master_display_white_x = metadata->white_point[0];
         codec->master_display_white_y = metadata->white_point[1];
     } else {
-        codec->master_display_red_x = (AVRational){ unspecified_coord, 1 };
-        codec->master_display_red_y = (AVRational){ unspecified_coord, 1 };
-        codec->master_display_green_x = (AVRational){ unspecified_coord, 1 };
-        codec->master_display_green_y = (AVRational){ unspecified_coord, 1 };
-        codec->master_display_blue_x = (AVRational){ unspecified_coord, 1 };
-        codec->master_display_blue_y = (AVRational){ unspecified_coord, 1 };
-        codec->master_display_white_x = (AVRational){ unspecified_coord, 1 };
-        codec->master_display_white_y = (AVRational){ unspecified_coord, 1 };
+        codec->master_display_red_x = (AVRational){ AV_CODEC_MASTER_DISPLAY_UNSPECIFIED, 1 };
+        codec->master_display_red_y = (AVRational){ AV_CODEC_MASTER_DISPLAY_UNSPECIFIED, 1 };
+        codec->master_display_green_x = (AVRational){ AV_CODEC_MASTER_DISPLAY_UNSPECIFIED, 1 };
+        codec->master_display_green_y = (AVRational){ AV_CODEC_MASTER_DISPLAY_UNSPECIFIED, 1 };
+        codec->master_display_blue_x = (AVRational){ AV_CODEC_MASTER_DISPLAY_UNSPECIFIED, 1 };
+        codec->master_display_blue_y = (AVRational){ AV_CODEC_MASTER_DISPLAY_UNSPECIFIED, 1 };
+        codec->master_display_white_x = (AVRational){ AV_CODEC_MASTER_DISPLAY_UNSPECIFIED, 1 };
+        codec->master_display_white_y = (AVRational){ AV_CODEC_MASTER_DISPLAY_UNSPECIFIED, 1 };
     }
 
     if (metadata->has_luminance)
@@ -2262,8 +2261,8 @@ static void mastering_display_metadata_to_context(AVCodecContext *codec,
         codec->master_display_min_luminance = metadata->min_luminance;
         codec->master_display_max_luminance = metadata->max_luminance;
     } else {
-        codec->master_display_min_luminance = (AVRational){ unspecified_coord, 1 };
-        codec->master_display_max_luminance = (AVRational){ unspecified_coord, 1 };
+        codec->master_display_min_luminance = (AVRational){ AV_CODEC_MASTER_DISPLAY_UNSPECIFIED, 1 };
+        codec->master_display_max_luminance = (AVRational){ AV_CODEC_MASTER_DISPLAY_UNSPECIFIED, 1 };
     }
 }
 

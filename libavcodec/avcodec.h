@@ -412,6 +412,12 @@ typedef struct RcOverride{
 #define AV_CODEC_EXPORT_DATA_VIDEO_ENC_PARAMS (1 << 2)
 
 /**
+ * Encoding only.
+ * Indicates that a mastering display option was not specified.
+ */
+#define AV_CODEC_MASTER_DISPLAY_UNSPECIFIED INT_MAX
+
+/**
  * Pan Scan area.
  * This specifies the area which should be displayed.
  * Note there may be multiple such areas for one frame.
