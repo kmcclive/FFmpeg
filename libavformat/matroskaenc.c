@@ -869,43 +869,61 @@ static void mkv_write_video_color(AVIOContext *pb, const AVStream *st,
         put_ebml_uint(dyn_cp, MATROSKA_ID_VIDEOCOLORCHROMASITINGVERT, (ypos >> 7) + 1);
     }
 
-    side_data = av_stream_get_side_data(st, AV_PKT_DATA_CONTENT_LIGHT_LEVEL,
-                                        NULL);
-    if (side_data) {
-        const AVContentLightMetadata *metadata = side_data;
-        put_ebml_uint(dyn_cp, MATROSKA_ID_VIDEOCOLORMAXCLL,  metadata->MaxCLL);
-        put_ebml_uint(dyn_cp, MATROSKA_ID_VIDEOCOLORMAXFALL, metadata->MaxFALL);
+    const AVContentLightMetadata *content_light_metadata = &par->content_light_metadata;
+
+    if (content_light_metadata->MaxCLL <= 0 || content_light_metadata->MaxFALL <= 0) {
+        side_data = av_stream_get_side_data(st, AV_PKT_DATA_CONTENT_LIGHT_LEVEL,
+                                            NULL);
+        if (side_data) {
+            content_light_metadata = side_data;
+        } else {
+            content_light_metadata = NULL;
+        }
+    }
+    
+    if (content_light_metadata) {
+        put_ebml_uint(dyn_cp, MATROSKA_ID_VIDEOCOLORMAXCLL,  content_light_metadata->MaxCLL);
+        put_ebml_uint(dyn_cp, MATROSKA_ID_VIDEOCOLORMAXFALL, content_light_metadata->MaxFALL);
     }
 
-    side_data = av_stream_get_side_data(st, AV_PKT_DATA_MASTERING_DISPLAY_METADATA,
-                                        NULL);
-    if (side_data) {
+    const AVMasteringDisplayMetadata *master_display_metadata = &par->master_display_metadata;
+
+    if (!master_display_metadata->has_primaries || !master_display_metadata->has_luminance) {
+        side_data = av_stream_get_side_data(st, AV_PKT_DATA_MASTERING_DISPLAY_METADATA,
+                                            NULL);
+        if (side_data) {
+            master_display_metadata = side_data;
+        } else {
+            master_display_metadata = NULL;
+        }
+    }
+    
+    if (master_display_metadata) {
         ebml_master meta_element = start_ebml_master(
             dyn_cp, MATROSKA_ID_VIDEOCOLORMASTERINGMETA, 10 * (2 + 1 + 8));
-        const AVMasteringDisplayMetadata *metadata = side_data;
-        if (metadata->has_primaries) {
+        if (master_display_metadata->has_primaries) {
             put_ebml_float(dyn_cp, MATROSKA_ID_VIDEOCOLOR_RX,
-                           av_q2d(metadata->display_primaries[0][0]));
+                           av_q2d(master_display_metadata->display_primaries[0][0]));
             put_ebml_float(dyn_cp, MATROSKA_ID_VIDEOCOLOR_RY,
-                           av_q2d(metadata->display_primaries[0][1]));
+                           av_q2d(master_display_metadata->display_primaries[0][1]));
             put_ebml_float(dyn_cp, MATROSKA_ID_VIDEOCOLOR_GX,
-                           av_q2d(metadata->display_primaries[1][0]));
+                           av_q2d(master_display_metadata->display_primaries[1][0]));
             put_ebml_float(dyn_cp, MATROSKA_ID_VIDEOCOLOR_GY,
-                           av_q2d(metadata->display_primaries[1][1]));
+                           av_q2d(master_display_metadata->display_primaries[1][1]));
             put_ebml_float(dyn_cp, MATROSKA_ID_VIDEOCOLOR_BX,
-                           av_q2d(metadata->display_primaries[2][0]));
+                           av_q2d(master_display_metadata->display_primaries[2][0]));
             put_ebml_float(dyn_cp, MATROSKA_ID_VIDEOCOLOR_BY,
-                           av_q2d(metadata->display_primaries[2][1]));
+                           av_q2d(master_display_metadata->display_primaries[2][1]));
             put_ebml_float(dyn_cp, MATROSKA_ID_VIDEOCOLOR_WHITEX,
-                           av_q2d(metadata->white_point[0]));
+                           av_q2d(master_display_metadata->white_point[0]));
             put_ebml_float(dyn_cp, MATROSKA_ID_VIDEOCOLOR_WHITEY,
-                           av_q2d(metadata->white_point[1]));
+                           av_q2d(master_display_metadata->white_point[1]));
         }
-        if (metadata->has_luminance) {
+        if (master_display_metadata->has_luminance) {
             put_ebml_float(dyn_cp, MATROSKA_ID_VIDEOCOLOR_LUMINANCEMAX,
-                           av_q2d(metadata->max_luminance));
+                           av_q2d(master_display_metadata->max_luminance));
             put_ebml_float(dyn_cp, MATROSKA_ID_VIDEOCOLOR_LUMINANCEMIN,
-                           av_q2d(metadata->min_luminance));
+                           av_q2d(master_display_metadata->min_luminance));
         }
         end_ebml_master(dyn_cp, meta_element);
     }

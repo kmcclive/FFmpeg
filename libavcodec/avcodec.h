@@ -412,6 +412,12 @@ typedef struct RcOverride{
 #define AV_CODEC_EXPORT_DATA_VIDEO_ENC_PARAMS (1 << 2)
 
 /**
+ * Encoding only.
+ * Indicates that a mastering display option was not specified.
+ */
+#define AV_CODEC_MASTER_DISPLAY_UNSPECIFIED INT_MAX
+
+/**
  * Pan Scan area.
  * This specifies the area which should be displayed.
  * Note there may be multiple such areas for one frame.
@@ -2352,6 +2358,90 @@ typedef struct AVCodecContext {
      * - encoding: set by user
      */
     int export_side_data;
+
+    /**
+     * CIE 1931 x chromaticity coord of red color primary for mastering display.
+     * - encoding: Set by user
+     * - decoding: unused
+     */
+    AVRational master_display_red_x;
+
+    /**
+     * CIE 1931 y chromaticity coord of red color primary for mastering display.
+     * - encoding: Set by user
+     * - decoding: unused
+     */
+    AVRational master_display_red_y;
+
+    /**
+     * CIE 1931 x chromaticity coord of green color primary for mastering display.
+     * - encoding: Set by user
+     * - decoding: unused
+     */
+    AVRational master_display_green_x;
+
+    /**
+     * CIE 1931 y chromaticity coord of green color primary for mastering display.
+     * - encoding: Set by user
+     * - decoding: unused
+     */
+    AVRational master_display_green_y;
+
+    /**
+     * CIE 1931 x chromaticity coord of blue color primary for mastering display.
+     * - encoding: Set by user
+     * - decoding: unused
+     */
+    AVRational master_display_blue_x;
+
+    /**
+     * CIE 1931 y chromaticity coord of blue color primary for mastering display.
+     * - encoding: Set by user
+     * - decoding: unused
+     */
+    AVRational master_display_blue_y;
+
+    /**
+     * CIE 1931 x chromaticity coord of white point for mastering display.
+     * - encoding: Set by user
+     * - decoding: unused
+     */
+    AVRational master_display_white_x;
+
+    /**
+     * CIE 1931 y chromaticity coord of white point for mastering display.
+     * - encoding: Set by user
+     * - decoding: unused
+     */
+    AVRational master_display_white_y;
+
+    /**
+     * Min luminance of mastering display (cd/m^2).
+     * - encoding: Set by user
+     * - decoding: unused
+     */
+    AVRational master_display_min_luminance;
+
+    /**
+     * Max luminance of mastering display (cd/m^2).
+     * - encoding: Set by user
+     * - decoding: unused
+     */
+    AVRational master_display_max_luminance;
+
+    /**
+     * Max content light level (cd/m^2).
+     * - encoding: Set by user
+     * - decoding: unused
+     */
+    unsigned max_cll;
+
+    /**
+     * Max average light level per frame (cd/m^2).
+     * - encoding: Set by user
+     * - decoding: unused
+     */
+    unsigned max_fall;
 } AVCodecContext;
 
 #if FF_API_CODEC_GET_SET

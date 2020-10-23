@@ -35,6 +35,7 @@
 #include "libavutil/frame.h"
 #include "libavutil/hwcontext.h"
 #include "libavutil/internal.h"
+#include "libavutil/mastering_display_metadata.h"
 #include "libavutil/mathematics.h"
 #include "libavutil/mem_internal.h"
 #include "libavutil/pixdesc.h"
@@ -2047,6 +2048,34 @@ AVCPBProperties *ff_add_cpb_side_data(AVCodecContext *avctx)
     return props;
 }
 
+static void master_display_metadata_reset(AVMasteringDisplayMetadata *metadata)
+{
+    if (!metadata)
+        return;
+
+    metadata->display_primaries[0][0] = (AVRational){ 0, 1 };
+    metadata->display_primaries[0][1] = (AVRational){ 0, 1 };
+    metadata->display_primaries[1][0] = (AVRational){ 0, 1 };
+    metadata->display_primaries[1][1] = (AVRational){ 0, 1 };
+    metadata->display_primaries[2][0] = (AVRational){ 0, 1 };
+    metadata->display_primaries[2][1] = (AVRational){ 0, 1 };
+    metadata->white_point[0] = (AVRational){ 0, 1 };
+    metadata->white_point[1] = (AVRational){ 0, 1 };
+    metadata->has_primaries = 0;
+    metadata->min_luminance = (AVRational){ 0, 1 };
+    metadata->max_luminance = (AVRational){ 0, 1 };
+    metadata->has_luminance = 0;
+}
+
+static void content_light_metadata_reset(AVContentLightMetadata *metadata)
+{
+    if (!metadata)
+        return;
+
+    metadata->MaxCLL = 0;
+    metadata->MaxFALL = 0;
+}
+
 static void codec_parameters_reset(AVCodecParameters *par)
 {
     av_freep(&par->extradata);
@@ -2065,6 +2094,9 @@ static void codec_parameters_reset(AVCodecParameters *par)
     par->sample_aspect_ratio = (AVRational){ 0, 1 };
     par->profile             = FF_PROFILE_UNKNOWN;
     par->level               = FF_LEVEL_UNKNOWN;
+
+    master_display_metadata_reset(&par->master_display_metadata);
+    content_light_metadata_reset(&par->content_light_metadata);
 }
 
 AVCodecParameters *avcodec_parameters_alloc(void)
@@ -2106,6 +2138,53 @@ int avcodec_parameters_copy(AVCodecParameters *dst, const AVCodecParameters *src
     return 0;
 }
 
+static void mastering_display_metadata_from_context(AVMasteringDisplayMetadata *metadata,
+                                                    const AVCodecContext *codec)
+{
+    if (!metadata || !codec)
+        return;
+    
+    master_display_metadata_reset(metadata);
+    
+    if (codec->master_display_red_x.num != AV_CODEC_MASTER_DISPLAY_UNSPECIFIED &&
+        codec->master_display_red_y.num != AV_CODEC_MASTER_DISPLAY_UNSPECIFIED &&
+        codec->master_display_green_x.num != AV_CODEC_MASTER_DISPLAY_UNSPECIFIED &&
+        codec->master_display_green_y.num != AV_CODEC_MASTER_DISPLAY_UNSPECIFIED &&
+        codec->master_display_blue_x.num != AV_CODEC_MASTER_DISPLAY_UNSPECIFIED &&
+        codec->master_display_blue_y.num != AV_CODEC_MASTER_DISPLAY_UNSPECIFIED &&
+        codec->master_display_white_x.num != AV_CODEC_MASTER_DISPLAY_UNSPECIFIED &&
+        codec->master_display_white_y.num != AV_CODEC_MASTER_DISPLAY_UNSPECIFIED)
+    {
+        metadata->display_primaries[0][0] = codec->master_display_red_x;
+        metadata->display_primaries[0][1] = codec->master_display_red_y;
+        metadata->display_primaries[1][0] = codec->master_display_green_x;
+        metadata->display_primaries[1][1] = codec->master_display_green_y;
+        metadata->display_primaries[2][0] = codec->master_display_blue_x;
+        metadata->display_primaries[2][1] = codec->master_display_blue_y;
+        metadata->white_point[0] = codec->master_display_white_x;
+        metadata->white_point[1] = codec->master_display_white_y;
+        metadata->has_primaries = 1;
+    }
+
+    if (codec->master_display_min_luminance.den > 0 &&
+        codec->master_display_max_luminance.den > 0)
+    {
+        metadata->min_luminance = codec->master_display_min_luminance;
+        metadata->max_luminance = codec->master_display_max_luminance;
+        metadata->has_luminance = 1;
+    }
+}
+
+static void content_light_metadata_from_context(AVContentLightMetadata *metadata,
+                                                const AVCodecContext *codec)
+{
+    if (!metadata || !codec)
+        return;
+    
+    metadata->MaxCLL = codec->max_cll;
+    metadata->MaxFALL = codec->max_fall;
+}
+
 int avcodec_parameters_from_context(AVCodecParameters *par,
                                     const AVCodecContext *codec)
 {
@@ -2134,6 +2213,9 @@ int avcodec_parameters_from_context(AVCodecParameters *par,
         par->chroma_location     = codec->chroma_sample_location;
         par->sample_aspect_ratio = codec->sample_aspect_ratio;
         par->video_delay         = codec->has_b_frames;
+
+        mastering_display_metadata_from_context(&par->master_display_metadata, codec);
+        content_light_metadata_from_context(&par->content_light_metadata, codec);
         break;
     case AVMEDIA_TYPE_AUDIO:
         par->format           = codec->sample_fmt;
@@ -2163,6 +2245,53 @@ int avcodec_parameters_from_context(AVCodecParameters *par,
     return 0;
 }
 
+static void mastering_display_metadata_to_context(AVCodecContext *codec,
+                                                  const AVMasteringDisplayMetadata *metadata)
+{
+    if (!codec || !metadata)
+        return;
+    
+    if (metadata->has_primaries)
+    {
+        codec->master_display_red_x = metadata->display_primaries[0][0];
+        codec->master_display_red_y = metadata->display_primaries[0][1];
+        codec->master_display_green_x = metadata->display_primaries[1][0];
+        codec->master_display_green_y = metadata->display_primaries[1][1];
+        codec->master_display_blue_x = metadata->display_primaries[2][0];
+        codec->master_display_blue_y = metadata->display_primaries[2][1];
+        codec->master_display_white_x = metadata->white_point[0];
+        codec->master_display_white_y = metadata->white_point[1];
+    } else {
+        codec->master_display_red_x = (AVRational){ AV_CODEC_MASTER_DISPLAY_UNSPECIFIED, 1 };
+        codec->master_display_red_y = (AVRational){ AV_CODEC_MASTER_DISPLAY_UNSPECIFIED, 1 };
+        codec->master_display_green_x = (AVRational){ AV_CODEC_MASTER_DISPLAY_UNSPECIFIED, 1 };
+        codec->master_display_green_y = (AVRational){ AV_CODEC_MASTER_DISPLAY_UNSPECIFIED, 1 };
+        codec->master_display_blue_x = (AVRational){ AV_CODEC_MASTER_DISPLAY_UNSPECIFIED, 1 };
+        codec->master_display_blue_y = (AVRational){ AV_CODEC_MASTER_DISPLAY_UNSPECIFIED, 1 };
+        codec->master_display_white_x = (AVRational){ AV_CODEC_MASTER_DISPLAY_UNSPECIFIED, 1 };
+        codec->master_display_white_y = (AVRational){ AV_CODEC_MASTER_DISPLAY_UNSPECIFIED, 1 };
+    }
+
+    if (metadata->has_luminance)
+    {
+        codec->master_display_min_luminance = metadata->min_luminance;
+        codec->master_display_max_luminance = metadata->max_luminance;
+    } else {
+        codec->master_display_min_luminance = (AVRational){ AV_CODEC_MASTER_DISPLAY_UNSPECIFIED, 1 };
+        codec->master_display_max_luminance = (AVRational){ AV_CODEC_MASTER_DISPLAY_UNSPECIFIED, 1 };
+    }
+}
+
+static void content_light_metadata_to_context(AVCodecContext *codec,
+                                              const AVContentLightMetadata *metadata)
+{
+    if (!codec || !metadata)
+        return;
+    
+    codec->max_cll = metadata->MaxCLL;
+    codec->max_fall = metadata->MaxFALL;
+}
+
 int avcodec_parameters_to_context(AVCodecContext *codec,
                                   const AVCodecParameters *par)
 {
@@ -2189,6 +2318,9 @@ int avcodec_parameters_to_context(AVCodecContext *codec,
         codec->chroma_sample_location = par->chroma_location;
         codec->sample_aspect_ratio    = par->sample_aspect_ratio;
         codec->has_b_frames           = par->video_delay;
+
+        mastering_display_metadata_to_context(codec, &par->master_display_metadata);
+        content_light_metadata_to_context(codec, &par->content_light_metadata);
         break;
     case AVMEDIA_TYPE_AUDIO:
         codec->sample_fmt       = par->format;
