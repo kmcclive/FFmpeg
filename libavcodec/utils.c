@@ -68,7 +68,7 @@
 #include "libavutil/ffversion.h"
 const char av_codec_ffversion[] = "FFmpeg version " FFMPEG_VERSION;
 
-static AVMutex codec_mutex = AV_MUTEX_INITIALIZER; 
+static AVMutex codec_mutex = AV_MUTEX_INITIALIZER;
 
 void av_fast_padded_malloc(void *ptr, unsigned int *size, size_t min_size)
 {
